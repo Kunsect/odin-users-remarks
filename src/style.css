@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #12151e;
+  --background-secondary: #1a1b25;
+  --background-tertiary: #252736;
+  --background-card: #2c3349;
+  --background-header: #222839;
+}
+
+html {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Roboto',
+    'Ubuntu',
+    'Cantarell',
+    'Noto Sans',
+    sans-serif,
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Segoe UI Symbol',
+    'Noto Color Emoji';
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  background-repeat: no-repeat;
+}
+
+.popup-container {
+  width: 316px;
+  min-width: 316px;
+  background-color: #191919;
+  border-radius: 0px 0px 12px 12px;
+  padding: 16px 20px;
+  color: #666;
+}
