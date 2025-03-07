@@ -1,22 +1,26 @@
 # Odin Users' Remarks
 
-一个浏览器扩展，允许用户为 [odin.fun](https://odin.fun) 平台上的交易用户添加自定义备注，方便识别和记忆交易对象。
+一个浏览器扩展，允许用户为 [odin.fun](https://odin.fun) 平台上的 holders 添加自定义备注，方便识别和记忆 holders，目前已实现以下功能：
 
 - 用户自定义备注
 - 导入 / 导出备注数据
+
+![popup page](/screenshot/image1.jpg)
 
 ## 安装方法
 
 克隆或下载此仓库到本地
 
 ```base
-# 直接使用 plugin/prod 文件夹下的扩展或者执行以下命令打包
+# 直接使用 plugin/prod 文件夹或者执行以下命令打包
 
 npm install
 npm run build
 ```
 
 在浏览器中加载扩展:
+
+![加载扩展](/screenshot/image2.jpg)
 
 - **Chrome/Edge**: 打开 `chrome://extensions/`，启用"开发者模式"，点击"加载已解压的扩展"，选择 `build/chrome-mv3-dev` 文件夹
 - **Firefox**: 打开 `about:debugging`，点击"此 Firefox"，点击"加载临时附加组件"，选择 `build/firefox-mv2-dev` 文件夹中的 manifest.json 文件
