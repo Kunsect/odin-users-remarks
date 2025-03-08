@@ -1,8 +1,8 @@
 {
   "name": "odin-fun-plugin",
   "displayName": "Odin Fun Plugin",
-  "version": "0.0.1",
-  "description": "A browser extension that allows users to add custom remarks for holders on the odin.fun platform, making it easier to identify and remember holders.",
+  "version": "0.0.2",
+  "description": "A browser extension for adding custom remarks to holders on odin.fun, making it easier to identify and remember them.",
   "author": "kunsect@gmail.com",
   "scripts": {
     "dev": "plasmo dev",

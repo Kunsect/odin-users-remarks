@@ -1,13 +1,19 @@
 import { useStorage } from '@plasmohq/storage/hook'
 import '~style.css'
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext'
+import React from 'react'
 
-const Popup = () => {
-  const [autoSubmitEnabled, setAutoSubmitEnabled] = useStorage('auto_submit_enabled', false)
+const PopupContent = () => {
+  const { language, setLanguage, t } = useLanguage()
 
   const openLogsPage = () => {
     chrome.tabs.create({
       url: './tabs/users.html'
     })
+  }
+
+  const toggleLanguage = () => {
+    setLanguage(language === 'zh' ? 'en' : 'zh')
   }
 
   return (
@@ -18,11 +24,22 @@ const Popup = () => {
         </div>
 
         <div className="py-5">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-light-primary">{t('switchLanguage') as string}</span>
+            <button
+              onClick={toggleLanguage}
+              className="px-3 py-1 text-sm text-white rounded focus:outline-none transition-colors duration-200 bg-background-tertiary hover:bg-opacity-80 flex items-center"
+            >
+              <span className="mr-1">{language === 'zh' ? '🇨🇳' : '🇺🇸'}</span>
+              {t('switchLanguageButton') as string}
+            </button>
+          </div>
+
           <button
             onClick={() => openLogsPage()}
             className="w-full py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
           >
-            备注列表
+            {t('remarksList') as string}
           </button>
         </div>
       </div>
@@ -49,6 +66,14 @@ const Popup = () => {
         </div>
       </div>
     </div>
+  )
+}
+
+const Popup = () => {
+  return (
+    <LanguageProvider>
+      <PopupContent />
+    </LanguageProvider>
   )
 }
 

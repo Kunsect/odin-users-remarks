@@ -2,6 +2,8 @@ import { useStorage } from '@plasmohq/storage/hook'
 import '~style.css'
 import { useState, useRef } from 'react'
 import Modal from 'react-modal'
+import { LanguageProvider } from '../contexts/LanguageContext'
+import { useLanguage } from '../contexts/LanguageContext'
 
 if (typeof document !== 'undefined') {
   Modal.setAppElement('#__plasmo')
@@ -51,6 +53,7 @@ const customModalStyles = {
 }
 
 const UserRemarksList: React.FC = () => {
+  const { t, language } = useLanguage()
   const [userRemarks, setUserRemarks] = useStorage<string>('userRemarks', '[]')
   const [editingRemark, setEditingRemark] = useState<UserRemark | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -107,7 +110,7 @@ const UserRemarksList: React.FC = () => {
     setEditingRemark(remark)
     openModal(
       'prompt',
-      '修改备注',
+      t('editRemarkTitle') as string,
       '',
       (newRemarkText) => {
         if (newRemarkText && newRemarkText.trim()) {
@@ -123,7 +126,7 @@ const UserRemarksList: React.FC = () => {
 
   const handleDelete = (userId: string) => {
     setTempEditingState()
-    openModal('confirm', '删除备注', '确定要删除这条备注吗？', () => {
+    openModal('confirm', t('deleteRemarkTitle') as string, t('deleteRemarkMessage') as string, () => {
       const updatedRemarks = parsedRemarks.filter((r) => r.userId !== userId)
       setUserRemarks(JSON.stringify(updatedRemarks))
     })
@@ -132,7 +135,7 @@ const UserRemarksList: React.FC = () => {
   const handleExport = () => {
     if (parsedRemarks.length === 0) {
       setTempEditingState()
-      openModal('alert', '导出失败', '没有备注可导出', () => {})
+      openModal('alert', t('exportFailTitle') as string, t('exportFailMessage') as string, () => {})
       return
     }
 
@@ -165,41 +168,52 @@ const UserRemarksList: React.FC = () => {
         const importedData = JSON.parse(e.target?.result as string)
 
         if (!Array.isArray(importedData)) {
-          throw new Error('导入的数据不是有效的数组格式')
+          throw new Error(t('invalidDataFormat') as string)
         }
 
         // 验证每个项目是否符合UserRemark接口
         for (const item of importedData) {
           if (!item.userId || !item.username || !item.remark) {
-            throw new Error('导入的数据格式不正确')
+            throw new Error(t('incorrectDataFormat') as string)
           }
         }
 
         setTempEditingState()
-        openModal('confirm', '导入备注', `确定要导入 ${importedData.length} 条备注吗？`, () => {
-          // 合并备注，相同userId的备注会被追加而不是覆盖
-          const mergedRemarks = [...parsedRemarks]
+        const importMessage = t('importMessage')
+        openModal(
+          'confirm',
+          t('importTitle') as string,
+          typeof importMessage === 'function' ? importMessage(importedData.length) : importMessage,
+          () => {
+            // 合并备注，相同userId的备注会被追加而不是覆盖
+            const mergedRemarks = [...parsedRemarks]
 
-          importedData.forEach((importedRemark: UserRemark) => {
-            const existingIndex = mergedRemarks.findIndex((r) => r.userId === importedRemark.userId)
-            if (existingIndex >= 0) {
-              if (mergedRemarks[existingIndex].remark !== importedRemark.remark) {
-                mergedRemarks[existingIndex] = {
-                  ...mergedRemarks[existingIndex],
-                  remark: `${mergedRemarks[existingIndex].remark}、${importedRemark.remark}`
+            importedData.forEach((importedRemark: UserRemark) => {
+              const existingIndex = mergedRemarks.findIndex((r) => r.userId === importedRemark.userId)
+              if (existingIndex >= 0) {
+                if (mergedRemarks[existingIndex].remark !== importedRemark.remark) {
+                  mergedRemarks[existingIndex] = {
+                    ...mergedRemarks[existingIndex],
+                    remark: `${mergedRemarks[existingIndex].remark}、${importedRemark.remark}`
+                  }
                 }
+              } else {
+                mergedRemarks.push(importedRemark)
               }
-            } else {
-              mergedRemarks.push(importedRemark)
-            }
-          })
+            })
 
-          setUserRemarks(JSON.stringify(mergedRemarks))
-        })
+            setUserRemarks(JSON.stringify(mergedRemarks))
+          }
+        )
       } catch (error) {
         console.error('导入失败:', error)
         setTempEditingState()
-        openModal('alert', '导入失败', `${error instanceof Error ? error.message : '无效的JSON格式'}`, () => {})
+        openModal(
+          'alert',
+          t('importFailTitle') as string,
+          `${error instanceof Error ? error.message : (t('invalidJson') as string)}`,
+          () => {}
+        )
       }
 
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -222,9 +236,9 @@ const UserRemarksList: React.FC = () => {
     switch (modalType) {
       case 'alert':
       case 'confirm':
-        return '确定'
+        return t('confirmButton') as string
       case 'prompt':
-        return '保存'
+        return t('saveButton') as string
     }
   }
 
@@ -268,7 +282,7 @@ const UserRemarksList: React.FC = () => {
                 className={`${COMMON_BUTTON_CLASS} ${BUTTON_STYLES.secondary} text-gray-300`}
                 onClick={closeModal}
               >
-                取消
+                {t('cancelButton') as string}
               </button>
             )}
             <button className={`${COMMON_BUTTON_CLASS} ${getModalButtonStyle()}`} onClick={confirmModal}>
@@ -279,21 +293,21 @@ const UserRemarksList: React.FC = () => {
       </Modal>
 
       <div className="mb-6 flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Odin Users' Remarks List</h2>
+        <h2 className="text-2xl font-semibold">{t('pageTitle') as string}</h2>
         <div className="flex space-x-3">
           <button
             onClick={handleExport}
             className={`${COMMON_BUTTON_CLASS} ${BUTTON_STYLES.secondary}`}
             disabled={parsedRemarks.length === 0 || editingRemark !== null}
           >
-            导出备注
+            {t('exportButton') as string}
           </button>
           <button
             onClick={handleImport}
             className={`${COMMON_BUTTON_CLASS} ${BUTTON_STYLES.primary}`}
             disabled={editingRemark !== null}
           >
-            导入备注
+            {t('importButton') as string}
           </button>
           <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".json" className="hidden" />
         </div>
@@ -304,11 +318,11 @@ const UserRemarksList: React.FC = () => {
             <tr>
               <th className="p-4 text-center text-base">#</th>
               <th className="p-4 text-center text-base" style={{ maxWidth: '120px' }}>
-                ID
+                {t('idHeader') as string}
               </th>
-              <th className="p-4 text-center text-base">用户名</th>
-              <th className="px-6 py-4 text-center text-base">备注</th>
-              <th className="px-6 py-4 text-center text-base">操作</th>
+              <th className="p-4 text-center text-base">{t('usernameHeader') as string}</th>
+              <th className="px-6 py-4 text-center text-base">{t('remarkHeader') as string}</th>
+              <th className="px-6 py-4 text-center text-base">{t('actionsHeader') as string}</th>
             </tr>
           </thead>
           <tbody>
@@ -340,14 +354,14 @@ const UserRemarksList: React.FC = () => {
                         disabled={editingRemark !== null}
                         className={`${TABLE_BUTTON_CLASS} ${BUTTON_STYLES.primary}`}
                       >
-                        修改
+                        {t('editButton') as string}
                       </button>
                       <button
                         onClick={() => handleDelete(remark.userId)}
                         disabled={editingRemark !== null}
                         className={`${TABLE_BUTTON_CLASS} ${BUTTON_STYLES.danger}`}
                       >
-                        删除
+                        {t('deleteButton') as string}
                       </button>
                     </div>
                   </td>
@@ -356,7 +370,7 @@ const UserRemarksList: React.FC = () => {
             ) : (
               <tr className="bg-background-card">
                 <td colSpan={6} className="p-4 text-center text-gray-400">
-                  暂无用户备注
+                  {t('noRemarks') as string}
                 </td>
               </tr>
             )}
@@ -367,4 +381,12 @@ const UserRemarksList: React.FC = () => {
   )
 }
 
-export default UserRemarksList
+const WrappedUserRemarksList: React.FC = () => {
+  return (
+    <LanguageProvider>
+      <UserRemarksList />
+    </LanguageProvider>
+  )
+}
+
+export default WrappedUserRemarksList

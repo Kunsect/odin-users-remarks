@@ -1,6 +1,8 @@
 import type { PlasmoCSConfig } from 'plasmo'
 import { logMessage } from '~utils'
 import { Storage } from '@plasmohq/storage'
+import type { Language } from '~contexts/LanguageContext'
+import { translations } from '~contexts/LanguageContext'
 
 export const config: PlasmoCSConfig = {
   matches: ['https://odin.fun/*']
@@ -25,7 +27,7 @@ interface PageInfo {
 // 存储管理模块
 class RemarkStorage {
   private storage = new Storage()
-  private remarks: UserRemark[] = []
+  private remarksMap: Map<string, UserRemark> = new Map()
 
   constructor() {
     this.setupStorageWatcher()
@@ -35,7 +37,13 @@ class RemarkStorage {
     this.storage.watch({
       userRemarks: async ({ newValue }) => {
         try {
-          if (typeof newValue === 'string') this.remarks = JSON.parse(newValue || '[]')
+          if (typeof newValue === 'string') {
+            const remarksArray: UserRemark[] = JSON.parse(newValue || '[]')
+            this.remarksMap.clear()
+            remarksArray.forEach((remark) => {
+              this.remarksMap.set(remark.userId, remark)
+            })
+          }
         } catch (error) {
           console.error('Error parsing updated user remarks:', error)
         }
@@ -47,19 +55,24 @@ class RemarkStorage {
     try {
       const savedRemarks = await this.storage.get('userRemarks')
       if (savedRemarks) {
-        this.remarks = JSON.parse(savedRemarks)
-        console.log('Loaded user remarks:', this.remarks)
+        const remarksArray: UserRemark[] = JSON.parse(savedRemarks)
+        this.remarksMap.clear()
+        remarksArray.forEach((remark) => {
+          this.remarksMap.set(remark.userId, remark)
+        })
+        console.log('Loaded user remarks:', remarksArray)
       }
     } catch (error) {
       console.error('Error loading user remarks:', error)
-      this.remarks = []
+      this.remarksMap.clear()
     }
   }
 
   async save() {
     try {
-      await this.storage.set('userRemarks', JSON.stringify(this.remarks))
-      console.log('Saved user remarks:', this.remarks)
+      const remarksArray = Array.from(this.remarksMap.values())
+      await this.storage.set('userRemarks', JSON.stringify(remarksArray))
+      console.log('Saved user remarks:', remarksArray)
     } catch (error) {
       console.error('Error saving user remarks:', error)
     }
@@ -67,26 +80,19 @@ class RemarkStorage {
 
   async addRemark(userId: string, username: string, remark: string) {
     const newRemark: UserRemark = { userId, username, remark }
-
-    const existingIndex = this.remarks.findIndex((r) => r.userId === userId)
-    if (existingIndex >= 0) {
-      this.remarks[existingIndex] = newRemark
-    } else {
-      this.remarks.push(newRemark)
-    }
-
+    this.remarksMap.set(userId, newRemark)
     await this.save()
     return newRemark
   }
 
   getRemark(userId: string): UserRemark | undefined {
-    return this.remarks.find((r) => r.userId === userId)
+    return this.remarksMap.get(userId)
   }
 
   async removeRemark(userId: string) {
-    const index = this.remarks.findIndex((r) => r.userId === userId)
-    if (index >= 0) {
-      this.remarks.splice(index, 1)
+    const hasRemark = this.remarksMap.has(userId)
+    if (hasRemark) {
+      this.remarksMap.delete(userId)
       await this.save()
       return true
     }
@@ -94,7 +100,7 @@ class RemarkStorage {
   }
 
   getAllRemarks() {
-    return [...this.remarks]
+    return Array.from(this.remarksMap.values())
   }
 }
 
@@ -174,8 +180,7 @@ class PageRouter {
 
 // Token页面处理模块
 class TokenPageHandler {
-  private currentContainer: Element | null = null
-  private containerObserver: MutationObserver | null = null
+  private observer: MutationObserver | null = null
   private remarkStorage: RemarkStorage
 
   constructor(remarkStorage: RemarkStorage) {
@@ -183,82 +188,78 @@ class TokenPageHandler {
   }
 
   start() {
-    this.observeBodyForContainer()
+    this.processAllUserLinks()
+    this.setupObserver()
   }
 
-  private extractUsersAndModifyDOM(container: Element) {
-    console.log('Processing users in token page')
-    const users = Array.from(container.querySelectorAll('ul li a'))
-      .map((a) => ({
-        id: a.getAttribute('title'),
-        name: a.textContent?.trim() || '',
-        element: a as HTMLElement
-      }))
-      .filter((user) => user.id)
+  private setupObserver() {
+    if (this.observer) this.observer.disconnect()
 
-    users.forEach(({ id, name, element }) => {
-      const span = element.closest('span')
-      if (!span || span.getAttribute('data-modified')) return
-
-      const userRemark = this.remarkStorage.getRemark(id)
-
-      if (userRemark && userRemark.remark) {
-        element.innerHTML = ''
-        const newText = document.createTextNode(userRemark.remark)
-        element.style.color = '#FFD700'
-        element.style.fontWeight = 'bold'
-        element.appendChild(newText)
-      }
-
-      // 标记已修改，防止循环
-      span.setAttribute('data-modified', 'true')
+    this.observer = new MutationObserver(() => {
+      this.processAllUserLinks() // 当页面发生变化时，重新处理所有链接
     })
 
-    return users
-  }
-
-  private observeContainer(container: Element) {
-    if (this.containerObserver) this.containerObserver.disconnect()
-
-    console.log('Observing new container:', container)
-    this.extractUsersAndModifyDOM(container)
-
-    this.containerObserver = new MutationObserver(() => {
-      console.log('Container content changed, updating user list...')
-      this.extractUsersAndModifyDOM(container)
-    })
-
-    this.containerObserver.observe(container, {
+    this.observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['href']
     })
   }
 
-  private observeBodyForContainer() {
-    const bodyObserver = new MutationObserver(() => {
-      const blocks = document.querySelectorAll(SELECTORS.tokenContainer)
+  /**
+   * 处理单个链接
+   * 应用备注并设置样式
+   */
+  private processLink(link: HTMLAnchorElement) {
+    const href = link.getAttribute('href')
+    if (!href || !href.startsWith('/user/')) return
 
-      if (blocks.length === 2) {
-        const newContainer = blocks[1]
+    const userId = href.replace('/user/', '')
 
-        if (newContainer !== this.currentContainer) {
-          console.log('Container updated, switching observer...')
-          this.currentContainer = newContainer
-          if (this.currentContainer) this.observeContainer(this.currentContainer)
-        }
+    if (link.getAttribute('data-processed-user-id') === userId) return // 检查链接是否已经处理过，且用户ID没有变化
+
+    link.setAttribute('data-processed-user-id', userId) // 标记链接已处理，并记录用户ID
+
+    link.style.color = ''
+    link.style.fontWeight = ''
+
+    const userRemark = this.remarkStorage.getRemark(userId)
+
+    // 如果有备注，应用备注和样式
+    if (userRemark && userRemark.remark) {
+      link.textContent = userRemark.remark
+
+      link.style.color = '#FFD700'
+      link.style.fontWeight = 'bold'
+    }
+  }
+
+  /**
+   * 处理页面上所有的用户链接
+   * 查找所有以 /user/ 开头的链接，并应用对应的备注
+   */
+  private processAllUserLinks() {
+    const allLinks = document.querySelectorAll('a[href^="/user/"]')
+
+    allLinks.forEach((link) => {
+      if (link instanceof HTMLAnchorElement) {
+        const href = link.getAttribute('href')
+        if (!href) return
+
+        const userId = href.replace('/user/', '')
+        const processedUserId = link.getAttribute('data-processed-user-id')
+
+        // 只有当链接未处理过或者用户ID发生变化时才处理
+        if (processedUserId !== userId) this.processLink(link)
       }
-    })
-
-    bodyObserver.observe(document.body, {
-      childList: true,
-      subtree: true
     })
   }
 
   stop() {
-    if (this.containerObserver) {
-      this.containerObserver.disconnect()
-      this.containerObserver = null
+    if (this.observer) {
+      this.observer.disconnect()
+      this.observer = null
     }
   }
 }
@@ -268,9 +269,24 @@ class UserPageHandler {
   private remarkStorage: RemarkStorage
   private bodyObserver: MutationObserver | null = null
   private currentUserId: string | null = null
+  private storage = new Storage()
+  private language: Language = 'zh'
 
   constructor(remarkStorage: RemarkStorage) {
     this.remarkStorage = remarkStorage
+    this.initLanguage()
+  }
+
+  private async initLanguage() {
+    const storedLanguage = await this.storage.get<Language>('language')
+    if (storedLanguage) {
+      this.language = storedLanguage
+    }
+  }
+
+  private getText(key: keyof typeof translations.zh): string {
+    const translation = translations[this.language][key]
+    return typeof translation === 'function' ? key : (translation as string)
   }
 
   start(userId: string | null) {
@@ -287,8 +303,10 @@ class UserPageHandler {
     return button
   }
 
-  private addButtonToUserPage() {
+  private async addButtonToUserPage() {
     if (!this.currentUserId) return
+
+    await this.initLanguage()
 
     const userStatsContainer = document.querySelector(SELECTORS.userStats)
     if (!userStatsContainer) return
@@ -299,26 +317,22 @@ class UserPageHandler {
     // 检查是否已经添加过按钮
     if (usernameSpan.parentElement?.querySelector('[data-custom-button="true"]')) return
 
-    const username = usernameSpan.textContent?.trim() || '未知用户'
+    const username = usernameSpan.textContent?.trim()
 
-    // 获取当前用户的备注
     const existingRemark = this.remarkStorage.getRemark(this.currentUserId)
 
-    // 移除已有的备注显示（如果有）
     const existingRemarkDisplay = usernameSpan.parentElement?.querySelector('.user-remark-display')
     if (existingRemarkDisplay) existingRemarkDisplay.remove()
 
-    // 创建按钮文本
-    let buttonText = existingRemark ? '修改备注' : '添加备注'
+    let buttonText = existingRemark ? this.getText('editRemarkButton') : this.getText('addRemarkButton')
 
-    // 如果有备注，直接在按钮上显示
     if (existingRemark) buttonText = `${existingRemark.remark}`
 
     const button = this.createButton(buttonText, () => {
       logMessage({ action: 'add_remark', userId: this.currentUserId })
 
-      const remark = prompt('请输入备注:', existingRemark?.remark || '')
-      if (remark.trim()) {
+      const remark = prompt(this.getText('remarkInputPrompt'), existingRemark?.remark || '')
+      if (remark && remark.trim()) {
         this.remarkStorage.addRemark(this.currentUserId || '', username, remark).then(() => {
           button.textContent = `${remark}`
           button.style.backgroundColor = '#2c3349'
