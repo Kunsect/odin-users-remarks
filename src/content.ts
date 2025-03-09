@@ -227,7 +227,7 @@ class TokenPageHandler {
     const userRemark = this.remarkStorage.getRemark(userId)
 
     // 如果有备注，应用备注和样式
-    if (userRemark && userRemark.remark) {
+    if (userRemark && userRemark.remark && link.textContent.trim()) {
       link.textContent = userRemark.remark
 
       link.style.color = '#FFD700'
