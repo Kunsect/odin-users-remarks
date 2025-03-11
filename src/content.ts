@@ -26,7 +26,7 @@ interface PageInfo {
 
 // 存储管理模块
 class RemarkStorage {
-  private storage = new Storage()
+  private storage = new Storage({ area: 'local' })
   private remarksMap: Map<string, UserRemark> = new Map()
 
   constructor() {
@@ -269,7 +269,7 @@ class UserPageHandler {
   private remarkStorage: RemarkStorage
   private bodyObserver: MutationObserver | null = null
   private currentUserId: string | null = null
-  private storage = new Storage()
+  private storage = new Storage({ area: 'local' })
   private language: Language = 'zh'
 
   constructor(remarkStorage: RemarkStorage) {
@@ -311,7 +311,7 @@ class UserPageHandler {
     const userStatsContainer = document.querySelector(SELECTORS.userStats)
     if (!userStatsContainer) return
 
-    const usernameSpan = userStatsContainer.querySelector('span.line-clamp-1')
+    const usernameSpan = userStatsContainer.querySelector('span.line-clamp-1') as HTMLElement
     if (!usernameSpan) return
 
     // 检查是否已经添加过按钮
@@ -319,9 +319,23 @@ class UserPageHandler {
 
     const username = usernameSpan.textContent?.trim()
 
+    if (!usernameSpan.hasAttribute('data-astrabot-modified')) {
+      usernameSpan.style.cursor = 'pointer'
+      usernameSpan.style.textDecoration = 'underline'
+      usernameSpan.style.textDecorationThickness = '2px'
+      usernameSpan.style.textUnderlineOffset = '4px'
+      usernameSpan.title = this.getText('viewProfitLossData')
+      usernameSpan.setAttribute('data-astrabot-modified', 'true')
+
+      usernameSpan.addEventListener('click', (e) => {
+        e.stopPropagation()
+        window.open(`https://astrabot.club/odin-user?user-id=${this.currentUserId}`, '_blank')
+      })
+    }
+
     const existingRemark = this.remarkStorage.getRemark(this.currentUserId)
 
-    const existingRemarkDisplay = usernameSpan.parentElement?.querySelector('.user-remark-display')
+    const existingRemarkDisplay = document.querySelector('.user-remark-display')
     if (existingRemarkDisplay) existingRemarkDisplay.remove()
 
     let buttonText = existingRemark ? this.getText('editRemarkButton') : this.getText('addRemarkButton')

@@ -47,7 +47,8 @@ export const translations = {
     switchLanguage: '切换语言',
     switchLanguageButton: 'English',
     translateToChinese: '翻译成中文',
-    remarksList: '备注列表'
+    remarksList: '备注列表',
+    viewProfitLossData: '查看盈亏数据'
   },
   en: {
     // Page title
@@ -91,7 +92,8 @@ export const translations = {
     switchLanguage: 'Switch Language',
     switchLanguageButton: '中文',
     translateToChinese: 'Translate to Chinese',
-    remarksList: 'Remarks List'
+    remarksList: 'Remarks List',
+    viewProfitLossData: 'View Profit/Loss Data'
   }
 }
 

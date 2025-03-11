@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import Modal from 'react-modal'
 import { LanguageProvider } from '../contexts/LanguageContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { Storage } from '@plasmohq/storage'
 
 if (typeof document !== 'undefined') {
   Modal.setAppElement('#__plasmo')
@@ -54,7 +55,14 @@ const customModalStyles = {
 
 const UserRemarksList: React.FC = () => {
   const { t, language } = useLanguage()
-  const [userRemarks, setUserRemarks] = useStorage<string>('userRemarks', '[]')
+  const [userRemarks, setUserRemarks] = useStorage<string>(
+    {
+      key: 'userRemarks',
+      instance: new Storage({ area: 'local' })
+    },
+    '[]'
+  )
+
   const [editingRemark, setEditingRemark] = useState<UserRemark | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
