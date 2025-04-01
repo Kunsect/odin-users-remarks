@@ -48,7 +48,16 @@ export const translations = {
     switchLanguageButton: 'English',
     translateToChinese: '翻译成中文',
     remarksList: '备注列表',
-    viewProfitLossData: '查看盈亏数据'
+    viewProfitLossData: '查看盈亏数据',
+
+    // Token page translations
+    totalBuySell: '总买入 / 卖出',
+    totalBuySellColon: '总买入 / 卖出：',
+    avgBuySell: '平均买入 / 卖出',
+    avgBuySellColon: '平均买入 / 卖出：',
+    profit: '盈亏',
+    profitColon: '盈亏：',
+    nA: '暂无数据'
   },
   en: {
     // Page title
@@ -93,7 +102,16 @@ export const translations = {
     switchLanguageButton: '中文',
     translateToChinese: 'Translate to Chinese',
     remarksList: 'Remarks List',
-    viewProfitLossData: 'View Profit/Loss Data'
+    viewProfitLossData: 'View Profit/Loss Data',
+
+    // Token page translations
+    totalBuySell: 'Total Buy / Sell',
+    totalBuySellColon: 'Total Buy / Sell:',
+    avgBuySell: 'Avg Buy / Sell',
+    avgBuySellColon: 'Avg Buy / Sell:',
+    profit: 'Profit / Loss',
+    profitColon: 'Profit / Loss:',
+    nA: 'N/A'
   }
 }
 
