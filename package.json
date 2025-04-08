@@ -1,7 +1,7 @@
 {
   "name": "odin-fun-plugin",
   "displayName": "Odin Fun Plugin",
-  "version": "0.2.0",
+  "version": "0.2.4",
   "description": "A browser extension for adding custom remarks to holders on odin.fun, making it easier to identify and remember them.",
   "author": "kunsect@gmail.com",
   "scripts": {
@@ -33,7 +33,8 @@
   },
   "manifest": {
     "host_permissions": [
-      "https://odin.fun/*"
+      "https://odin.fun/*",
+      "https://astrabot.club/*"
     ]
   }
 }

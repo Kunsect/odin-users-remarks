@@ -5,7 +5,7 @@ import { SELECTORS, API, STYLES, COLORS } from '~/constants'
 import { StorageService } from '~/services/storage'
 
 export const config: PlasmoCSConfig = {
-  matches: ['https://odin.fun/*']
+  matches: ['https://odin.fun/*', 'https://astrabot.club/*']
 }
 
 // 页面路由管理模块
@@ -635,6 +635,18 @@ class App {
   constructor() {
     this.tokenPageHandler = new TokenPageHandler(this.remarkStorage)
     this.userPageHandler = new UserPageHandler(this.remarkStorage)
+    this.setupMessageListener()
+  }
+
+  private setupMessageListener() {
+    window.addEventListener('message', async (event) => {
+      if (event.origin !== 'https://astrabot.club') return
+
+      if (event.data.action === 'getRemarkUsers') {
+        const remarks = this.remarkStorage.getAllRemarks()
+        window.postMessage({ action: 'getRemarkUsersResponse', data: remarks }, 'https://astrabot.club')
+      }
+    })
   }
 
   async init() {
