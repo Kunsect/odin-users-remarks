@@ -3,9 +3,59 @@ import { logMessage } from '~utils'
 import type { PageInfo, Activity, ActivityResponse, TokenStats } from '~/types'
 import { SELECTORS, API, STYLES, COLORS } from '~/constants'
 import { StorageService } from '~/services/storage'
+import { icons } from './icons'
+import { Storage } from '@plasmohq/storage'
+import { useLanguage, translations } from '~/contexts/LanguageContext'
 
 export const config: PlasmoCSConfig = {
   matches: ['https://odin.fun/*', 'https://astrabot.club/*']
+}
+
+// 共享的存储服务
+class SharedStorage {
+  private static instance: SharedStorage
+  private storage: Storage
+  private language: string = 'zh'
+  private showHolderStats: boolean = true
+
+  private constructor() {
+    this.storage = new Storage()
+    this.init()
+  }
+
+  public static getInstance(): SharedStorage {
+    if (!SharedStorage.instance) {
+      SharedStorage.instance = new SharedStorage()
+    }
+    return SharedStorage.instance
+  }
+
+  private async init() {
+    const language = await this.storage.get('language')
+    this.language = language || 'zh'
+
+    const showHolderStats = await this.storage.get('showHolderStats')
+    this.showHolderStats = typeof showHolderStats === 'boolean' ? showHolderStats : true
+  }
+
+  public getLanguage(): string {
+    return this.language
+  }
+
+  public getShowHolderStats(): boolean {
+    return this.showHolderStats
+  }
+}
+
+interface AstraUser {
+  id: number
+  principal: string
+  username: string
+  referer: string | null
+  maker_token_tags: string[] | null
+  token_created: number
+  created_at: string
+  last_updated: string
 }
 
 // 页面路由管理模块
@@ -96,12 +146,31 @@ class TokenPageHandler {
   private priceObserver: MutationObserver | null = null
   private remarkStorage: StorageService
   private userStatsMap: Map<string, TokenStats> = new Map()
+  private astraUserMap: Map<string, AstraUser> = new Map()
   private currentTokenPrice: number | null = null
   private satToUsd: number | null = null
+  private sharedStorage: SharedStorage
+
+  private static readonly tagIconMap = {
+    new_wallet: { icon: icons.newWallet, title: 'newWallet' },
+    paper_hands: { icon: icons.paperHand, title: 'paperHands' },
+    diamond_hands: { icon: icons.diamondHand, title: 'diamondHands' },
+    entrepreneur: { icon: icons.entrepreneur, title: 'entrepreneur' },
+    whale: { icon: icons.whale, title: 'whale' }
+  }
 
   constructor(remarkStorage: StorageService) {
     this.remarkStorage = remarkStorage
+    this.sharedStorage = SharedStorage.getInstance()
     this.initSatToUsd()
+  }
+
+  private get showHolderStats(): boolean {
+    return this.sharedStorage.getShowHolderStats()
+  }
+
+  private get language(): string {
+    return this.sharedStorage.getLanguage()
   }
 
   private async initSatToUsd() {
@@ -216,6 +285,7 @@ class TokenPageHandler {
   start() {
     this.currentTokenPrice = null
     this.userStatsMap.clear()
+    this.astraUserMap.clear()
     this.processAllUserLinks()
     this.setupObserver()
     this.setupPriceObserver()
@@ -225,14 +295,12 @@ class TokenPageHandler {
     if (this.observer) this.observer.disconnect()
 
     this.observer = new MutationObserver(() => {
-      this.processAllUserLinks() // 当页面发生变化时，处理所有链接
+      this.processAllUserLinks()
     })
 
     this.observer.observe(document.body, {
       childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['href']
+      subtree: true
     })
   }
 
@@ -259,7 +327,6 @@ class TokenPageHandler {
       }
     })
 
-    // 创建一个观察器来等待价格元素出现
     const containerObserver = new MutationObserver((mutations, observer) => {
       const priceContainers = document.querySelectorAll(
         '.rounded-lg.border.border-odin-border.p-\\[10px\\].text-center'
@@ -285,43 +352,50 @@ class TokenPageHandler {
       }
     })
 
-    containerObserver.observe(document.body, {
-      childList: true,
-      subtree: true
-    })
+    containerObserver.observe(document.body, { childList: true, subtree: true })
   }
 
-  private processAllUserLinks() {
+  private async processAllUserLinks() {
     const allLinks = document.querySelectorAll('a[href^="/user/"]')
+    const astraUsers: { principal: string; link: HTMLAnchorElement }[] = []
 
     allLinks.forEach((link) => {
       if (link instanceof HTMLAnchorElement) {
-        const href = link.getAttribute('href')
-        if (!href) return
-
-        const userId = href.replace('/user/', '')
+        const userId = link.getAttribute('href').replace('/user/', '')
         const processedUserId = link.getAttribute('data-processed-user-id')
 
-        // 只有当链接未处理过或者用户 ID 发生变化时才处理
-        if (processedUserId !== userId) this.processLink(link)
+        if (processedUserId !== userId) {
+          link.setAttribute('data-processed-user-id', userId)
+          this.processRemark(link, userId)
+
+          const liElement = link.closest('li')
+          if (liElement && this.isHolderListItem(liElement as HTMLElement)) {
+            if (this.showHolderStats) {
+              this.processHolderStats(link, userId)
+            }
+
+            astraUsers.push({ principal: userId, link })
+          }
+        }
       }
     })
+
+    const requestPrincipals = astraUsers.filter((user) => !this.astraUserMap.has(user.principal))
+    if (requestPrincipals.length) {
+      const response = await fetch('https://api.astrabot.club/odin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ principals: requestPrincipals.map((user) => user.principal) })
+      })
+      const res = await response.json()
+
+      if (res.success) res.users.map((user: AstraUser) => this.astraUserMap.set(user.principal, user))
+    }
+
+    astraUsers.map((user) => this.processHolderTags(user))
   }
 
-  /**
-   * 处理单个链接
-   * 应用备注并设置样式
-   */
-  private async processLink(link: HTMLAnchorElement) {
-    const href = link.getAttribute('href')
-    if (!href || !href.startsWith('/user/')) return
-
-    const userId = href.replace('/user/', '')
-
-    if (link.getAttribute('data-processed-user-id') === userId) return
-
-    link.setAttribute('data-processed-user-id', userId)
-
+  private processRemark(link: HTMLAnchorElement, userId: string) {
     link.style.color = ''
     link.style.fontWeight = ''
 
@@ -332,41 +406,73 @@ class TokenPageHandler {
       link.style.color = '#FFD700'
       link.style.fontWeight = 'bold'
     }
+  }
 
-    // 添加交易信息
+  private async processHolderStats(link: HTMLAnchorElement, userId: string) {
     const liElement = link.closest('li')
-    if (liElement && this.isHolderListItem(liElement as HTMLElement)) {
-      if (!liElement.getAttribute('data-processed')) {
-        const wrapper = document.createElement('div')
-        wrapper.className = 'flex flex-col w-full'
+    const wrapper = document.createElement('div')
+    wrapper.className = 'flex flex-col w-full'
 
-        const topContent = document.createElement('div')
-        topContent.className = 'flex w-full justify-between gap-2'
+    const topContent = document.createElement('div')
+    topContent.className = 'flex w-full justify-between gap-2'
 
-        while (liElement.firstChild) {
-          topContent.appendChild(liElement.firstChild)
+    while (liElement.firstChild) {
+      topContent.appendChild(liElement.firstChild)
+    }
+
+    wrapper.appendChild(topContent)
+
+    // 先添加骨架屏
+    const tradeInfo = this.createTradeInfoElement(userId)
+    tradeInfo.classList.add('trade-info')
+    wrapper.appendChild(tradeInfo)
+
+    liElement.appendChild(wrapper)
+    liElement.setAttribute('stats-processed', 'true')
+
+    liElement.className = liElement.className.replace('py-1', 'py-2')
+
+    // 加载数据并更新显示
+    this.loadTradeData(userId).then(() => {
+      const updatedTradeInfo = this.createTradeInfoElement(userId)
+      updatedTradeInfo.classList.add('trade-info')
+      tradeInfo.replaceWith(updatedTradeInfo)
+    })
+  }
+
+  private async processHolderTags(user: { principal: string; link: HTMLAnchorElement }) {
+    const astraUser = this.astraUserMap.get(user.principal)
+
+    if (astraUser?.maker_token_tags?.length) {
+      const iconsContainer = document.createElement('div')
+      iconsContainer.style.display = 'inline-flex'
+      iconsContainer.style.alignItems = 'center'
+      iconsContainer.style.gap = '4px'
+
+      Object.entries(TokenPageHandler.tagIconMap).forEach(([tag, { icon, title }]) => {
+        if (astraUser.maker_token_tags.includes(tag)) {
+          let titleText = translations[this.language][title]
+          if (tag === 'entrepreneur') {
+            const tokenCreated = astraUser.token_created
+            titleText = translations[this.language].createdTokens(tokenCreated)
+          }
+          iconsContainer.appendChild(TokenPageHandler.createIcon(icon, titleText))
         }
+      })
 
-        wrapper.appendChild(topContent)
-
-        // 先添加骨架屏
-        const tradeInfo = this.createTradeInfoElement(userId)
-        tradeInfo.classList.add('trade-info')
-        wrapper.appendChild(tradeInfo)
-
-        liElement.appendChild(wrapper)
-        liElement.setAttribute('data-processed', 'true')
-
-        liElement.className = liElement.className.replace('py-1', 'py-2')
-
-        // 加载数据并更新显示
-        this.loadTradeData(userId).then(() => {
-          const updatedTradeInfo = this.createTradeInfoElement(userId)
-          updatedTradeInfo.classList.add('trade-info')
-          tradeInfo.replaceWith(updatedTradeInfo)
-        })
+      if (iconsContainer.children.length) {
+        user.link.parentNode.insertBefore(iconsContainer, user.link.nextSibling)
       }
     }
+  }
+
+  private static createIcon(iconHtml: string, title: string): HTMLElement {
+    const icon = document.createElement('span')
+    icon.innerHTML = iconHtml
+    icon.style.display = 'inline-flex'
+    icon.style.alignItems = 'center'
+    icon.title = title
+    return icon
   }
 
   private formatUsdAmount(amount: number): string {
@@ -403,15 +509,15 @@ class TokenPageHandler {
       tradeInfo.innerHTML = `
         <div class="flex flex-col">
           <div class="flex items-center justify-between gap-2" style="color: ${COLORS.text.primary}">
-            <span style="color: ${COLORS.text.secondary}">Total Buy / Sell:</span>
+            <span style="color: ${COLORS.text.secondary}">${translations[this.language].totalBuySellColon}</span>
             <span style="font-weight: 500">${totalBuyUsd ? `${this.formatUsdAmount(totalBuyUsd)} / ${sellUsdDisplay}` : 'N/A'}</span>
           </div>
           <div class="flex items-center justify-between gap-2" style="color: ${COLORS.text.primary}">
-            <span style="color: ${COLORS.text.secondary}">Avg Buy / Sell:</span>
+            <span style="color: ${COLORS.text.secondary}">${translations[this.language].avgBuySellColon}</span>
             <span style="font-weight: 500; letter-spacing: 0.025em">${stats.avgBuyPriceSats.toFixed(2)} <span style="color: ${COLORS.text.muted}; font-size: 0.75rem">sat</span> / ${sellSatsDisplay} <span style="color: ${COLORS.text.muted}; font-size: 0.75rem">sat</span></span>
           </div>
           <div class="flex items-center justify-between gap-2">
-            <span style="color: ${COLORS.text.secondary}">Profit / Loss:</span>
+            <span style="color: ${COLORS.text.secondary}">${translations[this.language].profitColon}</span>
             <div class="flex items-center gap-1">
               <span style="color: ${profitColor}; font-weight: 500">${profitUsd ? this.formatUsdAmount(profitUsd) : 'N/A'}</span>
               <span style="color: ${profitColor}; background-color: ${profitBgColor}; font-size: 0.75rem; padding: 1px 6px; border-radius: 4px; font-weight: 500">${stats.roi.toFixed(2)}%</span>
@@ -428,15 +534,15 @@ class TokenPageHandler {
       tradeInfo.innerHTML = `
         <div class="flex flex-col">
           <div class="flex items-center justify-between gap-2">
-            <span style="color: ${COLORS.text.secondary}">Total Buy / Sell:</span>
+            <span style="color: ${COLORS.text.secondary}">${translations[this.language].totalBuySellColon}</span>
             <div class="skeleton" style="width: 100px; height: 16px"></div>
           </div>
           <div class="flex items-center justify-between gap-2">
-            <span style="color: ${COLORS.text.secondary}">Avg Buy / Sell:</span>
+            <span style="color: ${COLORS.text.secondary}">${translations[this.language].avgBuySellColon}</span>
             <div class="skeleton" style="width: 120px; height: 16px"></div>
           </div>
           <div class="flex items-center justify-between gap-2">
-            <span style="color: ${COLORS.text.secondary}">Profit / Loss:</span>
+            <span style="color: ${COLORS.text.secondary}">${translations[this.language].profitColon}</span>
             <div class="flex items-center gap-1">
               <div class="skeleton" style="width: 80px; height: 16px"></div>
               <div class="skeleton" style="width: 60px; height: 16px"></div>

@@ -49,6 +49,7 @@ export const translations = {
     translateToChinese: '翻译成中文',
     remarksList: '备注列表',
     viewProfitLossData: '查看盈亏数据',
+    showHolderStats: '持仓统计',
 
     // Token page translations
     totalBuySell: '总买入 / 卖出',
@@ -57,7 +58,12 @@ export const translations = {
     avgBuySellColon: '平均买入 / 卖出：',
     profit: '盈亏',
     profitColon: '盈亏：',
-    nA: '暂无数据'
+    newWallet: '新钱包',
+    paperHands: '纸手',
+    diamondHands: '钻石手',
+    entrepreneur: '创业者',
+    whale: '鲸鱼',
+    createdTokens: (count: number) => `创建了 ${count} 个代币`
   },
   en: {
     // Page title
@@ -103,15 +109,21 @@ export const translations = {
     translateToChinese: 'Translate to Chinese',
     remarksList: 'Remarks List',
     viewProfitLossData: 'View Profit/Loss Data',
+    showHolderStats: 'Holder Stats',
 
     // Token page translations
     totalBuySell: 'Total Buy / Sell',
     totalBuySellColon: 'Total Buy / Sell:',
-    avgBuySell: 'Avg Buy / Sell',
-    avgBuySellColon: 'Avg Buy / Sell:',
-    profit: 'Profit / Loss',
-    profitColon: 'Profit / Loss:',
-    nA: 'N/A'
+    avgBuySell: 'Average Buy / Sell',
+    avgBuySellColon: 'Average Buy / Sell:',
+    profit: 'Profit/Loss',
+    profitColon: 'Profit/Loss:',
+    newWallet: 'New Wallet',
+    paperHands: 'Paper Hands',
+    diamondHands: 'Diamond Hands',
+    entrepreneur: 'Entrepreneur',
+    whale: 'Whale',
+    createdTokens: (count: number) => `Created ${count} tokens`
   }
 }
 
