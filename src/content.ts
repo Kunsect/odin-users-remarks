@@ -205,10 +205,26 @@ class TokenPageHandler {
 
   private async fetchAllUserActivities(userId: string): Promise<Activity[]> {
     try {
-      const url = `${API.BASE_URL}/user/${userId}/activity?page=1&limit=5000&sort=time:desc`
-      const response = await fetch(url)
-      const { data } = (await response.json()) as ActivityResponse
-      return data
+      let allActivities: Activity[] = []
+      let page = 1
+      const pageSize = 1000
+      const maxRecords = 5000
+
+      while (allActivities.length < maxRecords) {
+        const url = `${API.BASE_URL}/user/${userId}/activity?page=${page}&limit=${pageSize}&sort=time:desc`
+        const response = await fetch(url)
+        const { data } = (await response.json()) as ActivityResponse
+
+        if (!data || data.length === 0) break
+
+        allActivities = allActivities.concat(data)
+
+        if (data.length < pageSize) break
+
+        page++
+      }
+
+      return allActivities.slice(0, maxRecords)
     } catch (error) {
       console.error(`Error fetching activities for user ${userId}:`, error)
       return []
@@ -300,7 +316,9 @@ class TokenPageHandler {
 
     this.observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['href']
     })
   }
 
