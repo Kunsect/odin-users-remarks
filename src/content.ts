@@ -192,6 +192,7 @@ class TokenPageHandler {
         const priceElement = container.querySelector(SELECTORS.priceElement)
         if (priceElement) {
           const priceText = priceElement.textContent?.trim()
+
           if (priceText) {
             const price = parseFloat(priceText)
             return Number(price.toFixed(2))
@@ -346,15 +347,12 @@ class TokenPageHandler {
     })
 
     const containerObserver = new MutationObserver((mutations, observer) => {
-      const priceContainers = document.querySelectorAll(
-        '.rounded-lg.border.border-odin-border.p-\\[10px\\].text-center'
-      )
+      const priceContainers = document.querySelectorAll(SELECTORS.priceContainer)
+
       for (const container of priceContainers) {
         const titleElement = container.querySelector('span.text-xxs.uppercase')
         if (titleElement?.textContent?.trim() === 'Price') {
-          const priceElement = container.querySelector(
-            'span.inline-flex.items-center.gap-1.text-white strong span span[title]'
-          )
+          const priceElement = container.querySelector(SELECTORS.priceElement)
           if (priceElement) {
             this.priceObserver.observe(priceElement, {
               characterData: true,
@@ -594,7 +592,7 @@ class TokenPageHandler {
   }
 
   private isHolderListItem(li: HTMLElement): boolean {
-    const hasUserLink = li.querySelector('a[href^="/user/"]') !== null
+    const hasUserLink = li.querySelector('a[title]') !== null
 
     const container = li.closest(SELECTORS.holdersContainer)
     const h1Title = container?.querySelector('h1')?.textContent?.trim()
@@ -606,6 +604,7 @@ class TokenPageHandler {
   private updateAllTradeInfo() {
     // 更新所有用户的交易信息显示
     const allTradeInfoElements = document.querySelectorAll(SELECTORS.tradeInfo)
+
     for (const element of allTradeInfoElements) {
       const liElement = element.closest('li')
       if (!liElement || !this.isHolderListItem(liElement as HTMLElement)) continue

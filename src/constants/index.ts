@@ -1,10 +1,10 @@
 export const SELECTORS = {
   tokenContainer: '.hidden.space-y-5.rounded-lg.bg-black.p-4.lg\\:block',
-  userStats: '.relative.flex.w-full.items-center.justify-start.gap-2.md\\:static.md\\:gap-8',
+  userStats: '.left-0.top-0.flex.flex-grow.items-center.gap-2.bg-transparent',
   priceContainer: '.rounded-lg.border.border-odin-border.p-\\[10px\\].text-center',
   priceTitle: 'span.text-xxs.uppercase',
-  priceElement: 'span.inline-flex.items-center.gap-1.text-white strong span span[title]',
-  holdersContainer: '.space-y-5.rounded-lg.bg-black.p-4',
+  priceElement: 'span.inline-flex.items-center.gap-1.text-primary span span[title]',
+  holdersContainer: '.space-y-5.rounded-lg.bg-background-offset.p-4',
   tradeInfo: '.trade-info'
 } as const
 
