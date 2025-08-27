@@ -445,6 +445,8 @@ class TokenPageHandler {
 
     liElement.appendChild(wrapper)
     liElement.setAttribute('stats-processed', 'true')
+    liElement.style.height = 'auto'
+    liElement.style.setProperty('height', 'auto', 'important')
 
     liElement.className = liElement.className.replace('py-1', 'py-2')
 
