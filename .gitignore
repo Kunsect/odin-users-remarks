@@ -33,3 +33,5 @@ dist/
 .tsbuildinfo
 
 .env
+
+CLAUDE.md

@@ -152,11 +152,11 @@ class TokenPageHandler {
   private sharedStorage: SharedStorage
 
   private static readonly tagIconMap = {
-    new_wallet: { icon: icons.newWallet, title: 'newWallet' },
-    paper_hands: { icon: icons.paperHand, title: 'paperHands' },
-    diamond_hands: { icon: icons.diamondHand, title: 'diamondHands' },
+    new_wallet: { icon: icons.newWallet, title: 'newWalletDesc' },
+    paper_hands: { icon: icons.paperHand, title: 'paperHandsDesc' },
+    diamond_hands: { icon: icons.diamondHand, title: 'diamondHandsDesc' },
     entrepreneur: { icon: icons.entrepreneur, title: 'entrepreneur' },
-    whale: { icon: icons.whale, title: 'whale' }
+    whale: { icon: icons.whale, title: 'whaleDesc' }
   }
 
   constructor(remarkStorage: StorageService) {
@@ -386,9 +386,7 @@ class TokenPageHandler {
 
           const liElement = link.closest('li')
           if (liElement && this.isHolderListItem(liElement as HTMLElement)) {
-            if (this.showHolderStats) {
-              this.processHolderStats(link, userId)
-            }
+            if (this.showHolderStats) this.processHolderStats(link, userId)
 
             astraUsers.push({ principal: userId, link })
           }
@@ -412,16 +410,28 @@ class TokenPageHandler {
   }
 
   private processRemark(link: HTMLAnchorElement, userId: string) {
-    link.style.color = ''
-    link.style.fontWeight = ''
+    const span = link.querySelector('span')
+    if (!span) return
+
+    span.style.color = ''
+    span.style.fontWeight = ''
 
     const userRemark = this.remarkStorage.getRemark(userId)
 
-    if (userRemark && userRemark.remark && link.textContent.trim()) {
-      link.textContent = userRemark.remark
-      link.style.color = '#FFD700'
-      link.style.fontWeight = 'bold'
+    if (userRemark && userRemark.remark && span.textContent?.trim()) {
+      span.textContent = userRemark.remark
+      span.style.color = '#FFD700'
+      span.style.fontWeight = 'bold'
     }
+  }
+
+  private refreshUserRemark(userId: string) {
+    const userLinks = document.querySelectorAll(`a[href="/user/${userId}"]`)
+    userLinks.forEach((link) => {
+      if (link instanceof HTMLAnchorElement) {
+        this.processRemark(link, userId)
+      }
+    })
   }
 
   private async processHolderStats(link: HTMLAnchorElement, userId: string) {
@@ -460,13 +470,15 @@ class TokenPageHandler {
 
   private async processHolderTags(user: { principal: string; link: HTMLAnchorElement }) {
     const astraUser = this.astraUserMap.get(user.principal)
+    const userId = user.principal
 
+    const iconsContainer = document.createElement('div')
+    iconsContainer.style.display = 'inline-flex'
+    iconsContainer.style.alignItems = 'center'
+    iconsContainer.style.gap = '4px'
+
+    // 添加标签图标
     if (astraUser?.maker_token_tags?.length) {
-      const iconsContainer = document.createElement('div')
-      iconsContainer.style.display = 'inline-flex'
-      iconsContainer.style.alignItems = 'center'
-      iconsContainer.style.gap = '4px'
-
       Object.entries(TokenPageHandler.tagIconMap).forEach(([tag, { icon, title }]) => {
         if (astraUser.maker_token_tags.includes(tag)) {
           let titleText = translations[this.language][title]
@@ -477,10 +489,44 @@ class TokenPageHandler {
           iconsContainer.appendChild(TokenPageHandler.createIcon(icon, titleText))
         }
       })
+    }
 
-      if (iconsContainer.children.length) {
-        user.link.parentNode.insertBefore(iconsContainer, user.link.nextSibling)
+    const remarkIcon = TokenPageHandler.createIcon(icons.remark, translations[this.language].addRemarkButton)
+    remarkIcon.style.cursor = 'pointer'
+    remarkIcon.style.opacity = '0.7'
+    remarkIcon.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      logMessage({ action: 'add_remark', userId: userId })
+
+      const currentRemark = this.remarkStorage.getRemark(userId)
+      const remark = prompt(translations[this.language].remarkInputPrompt, currentRemark?.remark || '')
+
+      if (remark && remark.trim()) {
+        const username = user.link.textContent?.trim() || userId
+        await this.remarkStorage.addRemark(userId, username, remark.trim())
+        this.refreshUserRemark(userId)
       }
+    })
+    iconsContainer.appendChild(remarkIcon)
+
+    const copyIcon = TokenPageHandler.createIcon(icons.copy, 'Copy User ID')
+    copyIcon.style.cursor = 'pointer'
+    copyIcon.style.opacity = '0.7'
+    copyIcon.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      await navigator.clipboard.writeText(userId)
+      const originalOpacity = copyIcon.style.opacity
+      copyIcon.style.opacity = '1'
+      copyIcon.style.color = '#34D399'
+      setTimeout(() => {
+        copyIcon.style.opacity = originalOpacity
+        copyIcon.style.color = ''
+      }, 1000)
+    })
+    iconsContainer.appendChild(copyIcon)
+
+    if (iconsContainer.children.length) {
+      user.link.parentNode.insertBefore(iconsContainer, user.link.nextSibling)
     }
   }
 
@@ -579,17 +625,37 @@ class TokenPageHandler {
       if (!tokenId) return
 
       if (!this.currentTokenPrice) this.currentTokenPrice = this.getCurrentTokenPrice()
-
-      // 检查缓存中是否有该用户的统计数据，如果没有则获取新数据
       if (this.userStatsMap.has(userId)) return
 
       const allActivities = await this.fetchAllUserActivities(userId)
-      const tokenStats = await this.calculateTokenStats(allActivities, tokenId)
-      if (!tokenStats) return
+      let tokenStats = await this.calculateTokenStats(allActivities, tokenId)
+
+      if (!tokenStats) {
+        tokenStats = {
+          totalBuy: 0,
+          totalSell: 0,
+          totalBuyBtc: 0,
+          totalSellBtc: 0,
+          avgBuyPriceSats: 0,
+          avgSellPriceSats: 0,
+          totalProfitLoss: 0,
+          roi: 0
+        }
+      }
 
       this.userStatsMap.set(userId, tokenStats)
     } catch (error) {
       console.error('Error loading trade data:', error)
+      this.userStatsMap.set(userId, {
+        totalBuy: 0,
+        totalSell: 0,
+        totalBuyBtc: 0,
+        totalSellBtc: 0,
+        avgBuyPriceSats: 0,
+        avgSellPriceSats: 0,
+        totalProfitLoss: 0,
+        roi: 0
+      })
     }
   }
 

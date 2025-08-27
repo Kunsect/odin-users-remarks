@@ -63,6 +63,10 @@ export const translations = {
     diamondHands: '钻石手',
     entrepreneur: '创业者',
     whale: '鲸鱼',
+    newWalletDesc: '创建时间不超过 7 天',
+    paperHandsDesc: '超过 70% 持仓时间小于 2 小时',
+    diamondHandsDesc: '超过 70% 持仓时间超过 10 天且为有效 token (price > 1sat)',
+    whaleDesc: '总资产价值超过 0.1b',
     createdTokens: (count: number) => `创建了 ${count} 个代币`
   },
   en: {
@@ -123,6 +127,10 @@ export const translations = {
     diamondHands: 'Diamond Hands',
     entrepreneur: 'Entrepreneur',
     whale: 'Whale',
+    newWalletDesc: 'Created within 7 days',
+    paperHandsDesc: 'Over 70% holdings held for less than 2 hours',
+    diamondHandsDesc: 'Over 70% holdings held for over 10 days with valid tokens (price > 1 sat)',
+    whaleDesc: 'Total asset value exceeds 0.1b',
     createdTokens: (count: number) => `Created ${count} tokens`
   }
 }
