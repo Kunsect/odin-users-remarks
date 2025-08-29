@@ -394,17 +394,17 @@ class TokenPageHandler {
       }
     })
 
-    const requestPrincipals = astraUsers.filter((user) => !this.astraUserMap.has(user.principal))
-    if (requestPrincipals.length) {
-      const response = await fetch('https://api.astrabot.club/odin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ principals: requestPrincipals.map((user) => user.principal) })
-      })
-      const res = await response.json()
+    // const requestPrincipals = astraUsers.filter((user) => !this.astraUserMap.has(user.principal))
+    // if (requestPrincipals.length) {
+    //   const response = await fetch('https://api.astrabot.club/odin/users', {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ principals: requestPrincipals.map((user) => user.principal) })
+    //   })
+    //   const res = await response.json()
 
-      if (res.success) res.users.map((user: AstraUser) => this.astraUserMap.set(user.principal, user))
-    }
+    //   if (res.success) res.users.map((user: AstraUser) => this.astraUserMap.set(user.principal, user))
+    // }
 
     astraUsers.map((user) => this.processHolderTags(user))
   }
