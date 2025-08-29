@@ -208,7 +208,7 @@ class TokenPageHandler {
     try {
       let allActivities: Activity[] = []
       let page = 1
-      const pageSize = 1000
+      const pageSize = 100
       const maxRecords = 5000
 
       while (allActivities.length < maxRecords) {
